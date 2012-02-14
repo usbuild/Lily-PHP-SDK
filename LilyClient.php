@@ -35,7 +35,7 @@ function getCookie($username, $password) {
 	} catch(Exception $e){}
 	return $cookie;
 }
-function query($url, $cookie) {
+function query($url, $cookie = null) {
 	$ch = curl_init($url);
 	curl_setopt($ch, CURLOPT_COOKIE, $cookie);
 	curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -45,11 +45,11 @@ function query($url, $cookie) {
 	return $data;
 }
 function getTop10() {
-	$data = $this->query("http://bbs.nju.edu.cn/cache/t_top10.js", null);
+	$data = $this->query("http://bbs.nju.edu.cn/cache/t_top10.js");
 	return '{"top10":'.$this->getJson($data).'}';
 }
 function getHotBoard() {
-	$data = $this->query("http://bbs.nju.edu.cn/cache/t_hotbrd.js", null);
+	$data = $this->query("http://bbs.nju.edu.cn/cache/t_hotbrd.js");
 	return '{"hotBoard":'.$this->getJson($data).'}';
 }
 
@@ -100,7 +100,7 @@ function getPosts($board, $start=null) {
         $url = "http://bbs.nju.edu.cn/bbstdoc?board=".$board;
     else 
         $url = "http://bbs.nju.edu.cn/bbstdoc?board=".$board."&start=".$start;
-	$rawData = $this->query($url, null);
+	$rawData = $this->query($url);
     //提取出Table中的内容
     $rawData = explode("<table", $rawData);
     $rawData = $rawData[1];
@@ -112,6 +112,7 @@ function getPosts($board, $start=null) {
 
     $objData = new stdClass;
     $objData->brd = $board;
+    //这里的start是讨论区除置顶贴的第一贴序号,可以向前推算
     $objData->start = null;
     $objData->items = array();
     foreach($dataArray as $item){
@@ -119,7 +120,6 @@ function getPosts($board, $start=null) {
         if($isTitle)
         {
             $itemArray = explode("<td>", $item);
-            //$objItem->num = urlencode(str_get_html($itemArray[1])->plaintext);
 
             $match_result = preg_match('/^\d+$/', str_get_html($itemArray[1])->plaintext, $match);
             if($match_result == 1)
@@ -127,6 +127,7 @@ function getPosts($board, $start=null) {
             if($objData->start == null)
                 $objData->start = $match[0];
 
+            //TODO 可能有多种状态，当前的处理可能不妥
             if($itemArray[2] != "")
                 $objItem->status = urlencode(str_get_html($itemArray[2])->plaintext);
             else
@@ -149,7 +150,7 @@ function getPosts($board, $start=null) {
                 $objItem->read = urldecode($readreply[1]);
             }
             else {
-                $objItem->reply = urlencode(0);
+                $objItem->reply = urlencode(0);//置顶的文章回复数置为0
                 $objItem->read = urlencode($readreply[0]);
             }
             //
@@ -162,7 +163,7 @@ function getPosts($board, $start=null) {
 }
 function getBoards($section) {
     $url = "http://bbs.nju.edu.cn/bbsboa?sec=".$section;
-    $rawData = $this->query($url, null);
+    $rawData = $this->query($url);
     $rawData = explode("<table", $rawData);
     $rawData = $rawData[1];
     $rawData = explode("</table>", $rawData);
@@ -187,6 +188,7 @@ function getBoards($section) {
             $objItem->bm = urlencode(str_get_html($itemArray[7])->plaintext);
             preg_match('/\d+/', $itemArray[8], $match);
             $objItem->artNum = $match[0];
+            //TODO 用sscanf优化，尽量少用正则表达式和explode函数
             array_push($objData->items, $objItem);
         }
         else
@@ -198,6 +200,7 @@ function getBoards($section) {
 }
 function getForum() 
 {
+    //鉴于此处变动较小，故采用直接返回的形式
     $objData = new stdClass;
     $objData->section = urlencode("分类讨论区");
     $objData->items = array(
@@ -220,33 +223,44 @@ function getForum()
 function getArticle($board, $file)
 {
     $url = "http://bbs.nju.edu.cn/bbstcon?board=".$board."&file=".$file."&start=-1";
-    $rawData = $this->query($url, null);
+    $rawData = $this->query($url);
+    $rawData = str_replace("\n", '_newline_', $rawData);//simple_html_dom 的 plaintext 会将换行符过滤掉，这里先占个位
     $html = str_get_html($rawData);
     $textareas = $html->find("textarea");
     $objData = new stdClass;
-    $objData->board = $board;
-    $objData->title = null;
+    $objData->board = $board;//所在版区
+    $objData->title = null;//文章标题
     $objData->items = array();
     $count = 0;
     foreach($textareas as $item)
     {
-        $item =  $item->plaintext;
+        $item = $item->plaintext;
         $objItem = new stdClass;
         $objItem->count = $count++;
-        sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)]%*[^ ]%[^\a]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
+        sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\a]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
         $objItem->author = trim($objItem->author);
-        $objItem->ip = strrchr($objItem->text, "--");
-        $objItem->text = urlencode(substr($objItem->text,0, -strlen($objItem->ip) - 1));
+        $objItem->text = trim(urlencode($objItem->text));//这里不再进行过滤了，ip地址可以过滤出来
         $objItem->name = urlencode($objItem->name);
-        sscanf($objItem->ip, "%*[^F]FROM: %[^]]", $objItem->ip);
         if($objData->title == null)
         {
-            $objData->title = urlencode(substr($title, 0, -10));
+            $objData->title = urlencode(substr($title, 0, -9));
         }
         array_push($objData->items, $objItem);
     }
-    return urldecode(json_encode($objData));
+    $result = str_replace("_newline_", "\n", urldecode(json_encode($objData)));//还原换行符
+    return $result;
+}
+
+function post($board, $title, $text, $cookie)
+{
+	$title = urlencode(mb_convert_encoding($title, "GBK", "UTF-8"));
+	$text = urlencode(mb_convert_encoding($text, "GBK", "UTF-8"));
+    $url = "http://bbs.nju.edu.cn/bbssnd?board=".$board."&text=".$text."&title=".$title;
+    $result = $this->query($url, $cookie);
+    if(strpos($result, 'Refresh') > 0) //如果发表成功，服务器会返回一个Refresh命令
+        return true;
+    return false;
 }
 }
 ?>
