@@ -97,9 +97,9 @@ function getJson($data) {
 }
 function getPosts($board, $start=null) {
     if($start == null)
-        $url = "http://bbs.nju.edu.cn/bbstdoc?board=".$board;
+        $url = $Config->board_url."?board=".$board;
     else 
-        $url = "http://bbs.nju.edu.cn/bbstdoc?board=".$board."&start=".$start;
+        $url = $Config->board_url."?board=".$board."&start=".$start;
 	$rawData = $this->query($url);
     //提取出Table中的内容
     $rawData = explode("<table", $rawData);
