@@ -9,12 +9,18 @@ class LilyClient {
     //-------Utils
     function encode(&$obj) {
         foreach ($obj as $key => &$value) {
-            if (gettype($value) == "array" || gettype($value) == "object")
+            if (gettype($value) == "array" || gettype($value) == "object") {
                 $this->encode($value);
+            }
             else
                 $value = urlencode($value);
         }
     }
+     function objectEncode($obj) {
+        $this->encode($obj);
+        return urldecode(json_encode($obj));
+    }
+
 
     function removeColors($var) {
         return preg_replace('/\[(\d\d||\d\d?;\d\d?|\d|\d;\d\d?;\d\d?)m/', '', $var);
@@ -130,6 +136,7 @@ class LilyClient {
     }
 
     function getPosts($board, $start = null) {
+        global $Config;
         if ($start == null)
             $url = $Config->board_url . "?board=" . $board;
         else
@@ -155,24 +162,25 @@ class LilyClient {
                 $itemArray = explode("<td>", $item);
 
                 $match_result = preg_match('/^\d+$/', str_get_html($itemArray[1])->plaintext, $match);
-                if ($match_result == 1)
+                if ($match_result == 1) {
                     $objItem->num = $match[0];
                 if ($objData->start == null)
                     $objData->start = $match[0];
+                }
 
                 //TODO 可能有多种状态，当前的处理可能不妥
                 if ($itemArray[2] != "")
-                    $objItem->status = urlencode(str_get_html($itemArray[2])->plaintext);
+                    $objItem->status = str_get_html($itemArray[2])->plaintext;
                 else
-                    $objItem->status = urlencode("普通");
-                $objItem->author = urlencode(str_get_html($itemArray[3])->plaintext);
-                $objItem->time = urlencode(str_get_html($itemArray[4])->plaintext);
+                    $objItem->status = "普通";
+                $objItem->author = str_get_html($itemArray[3])->plaintext;
+                $objItem->time = str_get_html($itemArray[4])->plaintext;
                 $html = str_get_html($itemArray[5]);
                 $name = $html->find("a");
                 $name = $name[0];
                 $href = explode("file=", $name->href);
-                $objItem->title = urlencode($name->plaintext);
-                $objItem->file = urlencode($href[1]);
+                $objItem->title = $name->plaintext;
+                $objItem->file = $href[1];
 
                 $readreply = str_get_html($itemArray[6])->plaintext;
                 $readreply = explode('/', $readreply);
@@ -181,8 +189,8 @@ class LilyClient {
                     $objItem->reply = urldecode($readreply[0]);
                     $objItem->read = urldecode($readreply[1]);
                 } else {
-                    $objItem->reply = urlencode(0); //置顶的文章回复数置为0
-                    $objItem->read = urlencode($readreply[0]);
+                    $objItem->reply = "-1"; //置顶的文章回复数置为0
+                    $objItem->read = $readreply[0];
                 }
                 //
                 array_push($objData->items, $objItem);
@@ -190,7 +198,7 @@ class LilyClient {
                 $isTitle = true;
             }
         }
-        return urldecode(json_encode($objData));
+        return $this->objectEncode($objData);
     }
 
     function getBoards($section) {
@@ -214,8 +222,8 @@ class LilyClient {
                 $objItem->id = $itemArray[1];
                 $objItem->brd = str_get_html($itemArray[3])->plaintext;
                 $objItem->uptime = $itemArray[4];
-                $objItem->name = urlencode(str_get_html($itemArray[6])->plaintext);
-                $objItem->bm = urlencode(str_get_html($itemArray[7])->plaintext);
+                $objItem->name = str_get_html($itemArray[6])->plaintext;
+                $objItem->bm = str_get_html($itemArray[7])->plaintext;
                 preg_match('/\d+/', $itemArray[8], $match);
                 $objItem->artNum = $match[0];
                 //TODO 用sscanf优化，尽量少用正则表达式和explode函数
@@ -224,29 +232,29 @@ class LilyClient {
                 $isTitle = true;
             }
         }
-        return urldecode(json_encode($objData));
+        return $this->objectEncode($objData);
     }
 
-    function getForum() {
+    function getForums() {
         //鉴于此处变动较小，故采用直接返回的形式
         $objData = new stdClass;
-        $objData->section = urlencode("分类讨论区");
+        $objData->section = "分类讨论区";
         $objData->items = array(
-            array("sec" => "0", "name" => urlencode("本站系统")),
-            array("sec" => "1", "name" => urlencode("南京大学")),
-            array("sec" => "2", "name" => urlencode("乡情校谊")),
-            array("sec" => "3", "name" => urlencode("电脑技术")),
-            array("sec" => "4", "name" => urlencode("学术科学")),
-            array("sec" => "5", "name" => urlencode("文化艺术")),
-            array("sec" => "6", "name" => urlencode("体育娱乐")),
-            array("sec" => "7", "name" => urlencode("感性休闲")),
-            array("sec" => "8", "name" => urlencode("新闻信息")),
-            array("sec" => "9", "name" => urlencode("百合广角")),
-            array("sec" => "10", "name" => urlencode("校务信箱")),
-            array("sec" => "11", "name" => urlencode("社团群体")),
-            array("sec" => "12", "name" => urlencode("冷门讨论区"))
+            array("sec" => "0", "name" => "本站系统"),
+            array("sec" => "1", "name" => "南京大学"),
+            array("sec" => "2", "name" => "乡情校谊"),
+            array("sec" => "3", "name" => "电脑技术"),
+            array("sec" => "4", "name" => "学术科学"),
+            array("sec" => "5", "name" => "文化艺术"),
+            array("sec" => "6", "name" => "体育娱乐"),
+            array("sec" => "7", "name" => "感性休闲"),
+            array("sec" => "8", "name" => "新闻信息"),
+            array("sec" => "9", "name" => "百合广角"),
+            array("sec" => "10", "name" => "校务信箱"),
+            array("sec" => "11", "name" => "社团群体"),
+            array("sec" => "12", "name" => "冷门讨论区")
         );
-        return urldecode(json_encode($objData));
+        return $this->objectEncode($objData);
     }
 
     function getArticle($board, $file) {
@@ -267,14 +275,14 @@ class LilyClient {
             sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\a]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
             $objItem->author = trim($objItem->author);
-            $objItem->text = trim(urlencode($objItem->text)); //这里不再进行过滤了，ip地址可以过滤出来
-            $objItem->name = urlencode($objItem->name);
+            $objItem->text = trim($objItem->text); //这里不再进行过滤了，ip地址可以过滤出来
+            $objItem->name = $objItem->name;
             if ($objData->title == null) {
-                $objData->title = urlencode(substr($title, 0, -9));
+                $objData->title = substr($title, 0, -9);
             }
             array_push($objData->items, $objItem);
         }
-        $result = str_replace("_newline_", "\n", urldecode(json_encode($objData))); //还原换行符
+        $result = str_replace("_newline_", "\n", $this->objectEncode($objData)); //还原换行符
         return $result;
     }
 
