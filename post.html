@@ -1,0 +1,32 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<script type="text/javascript" src="./js/kindeditor/kindeditor-min.js"
+	charset="utf-8"></script>
+<script type="text/javascript" src="./js/kindeditor/lang/zh_CN.js"
+	charset="utf-8"></script>
+<script>
+	var editor;
+	KindEditor.ready(function(K) {
+		editor = K.create('textarea[name="content"]', {
+			filterMode : true,
+			uploadJson : "picture.php",
+			newlineTag : 'br',
+			allowFileManager : true
+		});
+	});
+</script>
+
+<title>发表帖子</title>
+</head>
+<body>
+	<form action="post.php" method="post">
+		版区:<input type="text" name="board" value="test" /><br /> 标题:<input
+			type="text" name="title" value="test" /><br />
+		<textarea name="content"
+			style="width: 800px; height: 400px; visibility: hidden;"></textarea>
+		<br /> <input type="submit" />
+	</form>
+</body>
+</html>

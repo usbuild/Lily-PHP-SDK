@@ -80,6 +80,9 @@ class LilyClient {
     }
 
     function uploadFile($filename, $exp, $board, $cookie) {
+     
+     if(!file_exists($filename)) return false;
+     
         $post_data = array(//此处BBS进行了混淆，以下能够正常工作
             "up" => '@' . realpath($filename),
             "board" => $exp,

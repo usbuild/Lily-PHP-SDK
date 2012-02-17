@@ -10,7 +10,8 @@ function getCookie($cookie_jar_name) {
 require_once("LilyClient.php");
 $cookie = getCookie("cookie.txt");
 $client = new LilyClient;
-echo $client->getArticle("Pictures","M.1329391194.A");
+phpinfo();
+// echo $client->getArticle("Pictures","M.1329391194.A");
 //echo $client->postAfter("test", "M.1329404225.A", $cookie, "中文测试")
 //echo $client->post("test", "无猪蹄", "没有猪蹄", $cookie)
 ?>
