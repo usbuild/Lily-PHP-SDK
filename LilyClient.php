@@ -46,7 +46,7 @@ class LilyClient {
     $data = preg_replace('/((?<=[\{\,])[\w\s]*?(?=:))/', '"$1"', $data);
     return $data;
         }
-    
+
 
      /**
       * 将传入的$html中的ANSI颜色代码处理成HTML可读格式
@@ -55,7 +55,7 @@ class LilyClient {
       * @return string 处理过可以直接在浏览器中运行的字符串
       */
     function ansi_to_html($html) {
-        $style = array(
+        $GLOBALS['style'] = array(
    "30"=>"COLOR:#000000",
    "31"=>"COLOR:#e00000",
    "32"=>"COLOR:#008000",
@@ -80,11 +80,11 @@ class LilyClient {
         $regFilter2 = '/\x1B\[[\d;]*(4\d)[\d;]*(3\d)[\d;]*m'.$closeTag;
         $regFilter3 = '/\x1B\[[\d;]*(3\d|4\d)[\d;]*m'.$closeTag;
         $regFilter4 = '/\x1B\[[\d;]*(I|u|s|H|m|A|B|C|D)/i';
-
+        
         $html = $html."\x1B[m";
-        function callback($matches)
-        {
-            global $style;
+        $patterns = array($regFilter1, $regFilter2, $regFilter3, $regFilter4);
+        $html = preg_replace_callback($patterns, create_function('$matches', '
+        	$style = $GLOBALS["style"];
             if(count($matches) == 4)
             return "<span style=\"".$style[$matches[1]].";".$matches[2].";\">".$matches[3]."</span>";
             else if(count($matches) == 3)
@@ -92,12 +92,65 @@ class LilyClient {
             else if(count($matches) == 2)
             return "";
             else return false;
-        }
-        $patterns = array($regFilter1, $regFilter2, $regFilter3, $regFilter4);
-        $html = preg_replace_callback($patterns, "callback", $html);
+        '), $html);
         return $html;
     }
 
+    /**
+     * 
+     * 将UBB处理成标准HTML
+     * @param string $ubb 包含$ubb的字符串
+     * @return string 处理过的标准HTML
+     */
+    function format_ubb($ubb){
+        //TODO 
+        $pattern = array(
+        '/(^|[^\"\'\]])(http|ftp|mms|rstp|news|https)\:\/\/([^\s\033\[\]\"\'\(\)（）。，]+)/i',
+        '/\[url\]http\:\/\/(\S+\.)(gif|jpg|png|jpeg|jp)\[\/url\]/i',
+        '/\[url\](.+?)\[\/url\]/i',
+        '/\[img\](.+?)\[\/img\]/i',
+        '/\[flash\](.+?)\[\/flash\]/i',
+        '/\[wmv\](.+?\.wmv)\[\/wmv\]/i',
+        '/\[wma\](.+?\.(?:wma|mp3))\[\/wma\]/i',
+        
+        '/\[(c|color)=([#0-9a-zA-Z]{1,10})\](.+?)\[\/\1\]/i',
+        '/\[b\](.+?)\[\/b\]/i',
+        '/\[brd\](.+?)\[\/brd\]/i',
+        '/\[uid\]([0-9a-zA-Z]{2,12})\[\/uid\]/i',
+        '/\[blog\]([0-9a-zA-Z]{2,12})\[\/blog\]/i'
+        );
+        $replacement = array (
+        '${1}[url]${2}://${3}[/url]',
+        '[img]http://${1}${2}[/img]',
+        '<a href="${1}" target=_blank>${1}</a>',
+        '<img src="${1}" alt="" />',
+        '${1}',
+        '${1}',
+        '${1}',
+        '<span style="color:${2};">${3}</span>',
+        '<b>${1}</b>',
+        '${1}',
+        '${1}',
+        '${1}'
+        );
+        return preg_replace($pattern, $replacement, $ubb);
+    }
+
+    /**
+     * 
+     * ansi_to_html 和format_ubb的结合体
+     * @param string $html 原始输入字符串
+     * @return string 输出标准的HTML
+     */
+    function format_output($html) {
+        $html = str_replace(array(
+        "\n"
+        ), array(
+        '<br />'
+        ), $html);
+        return trim($this->format_ubb($this->ansi_to_html($html)));
+    }
+    
 /**
  * 
  * 移除所有的ANSI颜色代码
@@ -387,10 +440,11 @@ class LilyClient {
      * 获取某一帖子的内容及回复,在回复数较多的情况下可能会引起crash
      * @param string $board 板块标识
      * @param string $file 文章标识
+     * @param string $start (可选) 回帖起始位置
      * @return string 帖子内容的json格式字符串
      */
-    function getArticle($board, $file) {
-        $url = "http://bbs.nju.edu.cn/bbstcon?board=" . $board . "&file=" . $file . "&start=-1";
+    function getArticle($board, $file, $start = -1) {
+        $url = "http://bbs.nju.edu.cn/bbstcon?board=" . $board . "&file=" . $file . "&start=".$start;
         $rawData = $this->query($url);
         $rawData = str_replace("\n", '_newline_', $rawData); //simple_html_dom 的 plaintext 会将换行符过滤掉，这里先占个位
         $html = str_get_html($rawData);
@@ -400,22 +454,33 @@ class LilyClient {
         $objData->title = null; //文章标题
         $objData->items = array();
         $count = 0;
+        
         foreach ($textareas as $item) {
             $item = $item->plaintext;
             $objItem = new stdClass;
             $objItem->count = $count++;
-            sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\a]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
+            sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
+            if($title == "")
+            {//防止不规范的内容出现
+                $objItem->author = null;
+                $objItem->name = null;
+                $objItem->time = null;
+                $objItem->text = $this->format_output(str_replace("_newline_", "\n", $item));
+                array_push($objData->items, $objItem);
+                continue;
+            }
+            
             $objItem->author = trim($objItem->author);
-            $objItem->text = trim($objItem->text); //这里不再进行过滤了，ip地址可以过滤出来
+            $objItem->text = str_replace("_newline_", "\n", $objItem->text);//还原换行符
+            $objItem->text = $this->format_output($objItem->text); //这里不再进行过滤了，ip地址可以过滤出来
             $objItem->name = $objItem->name;
             if ($objData->title == null) {
-                $objData->title = substr($title, 0, -9);
+                $objData->title = substr($title, 0, -18);//Magic Number 
             }
             array_push($objData->items, $objItem);
         }
-        $result = str_replace("_newline_", "\n", $this->objectEncode($objData)); //还原换行符
-        return $result;
+        return $this->objectEncode($objData);
     }
 
     /**
@@ -425,7 +490,7 @@ class LilyClient {
      * @param string $title 帖子标题
      * @param string $text 帖子正文
      * @param string $cookie 用户cookie字符串
-     * @return boolean 成功返回true失败返回false
+     * @return boolean|string 成功返回true失败返回错误信息
      */
     function post($board, $title, $text, $cookie) {
         $title = mb_convert_encoding($title, "GBK", "UTF-8");
@@ -439,7 +504,7 @@ class LilyClient {
         $result = $this->query($url, $cookie, $fields);
         if (strpos($result, 'Refresh') > 0) //如果发表成功，服务器会返回一个Refresh命令
         return true;
-        return false;
+        return str_get_html($result)->plaintext;
     }
 
     /**
@@ -479,7 +544,7 @@ class LilyClient {
         return json_encode(new stdClass);
         $rawData = $rawData[0]->plaintext;
         $rawData = str_replace($nextline, "\n", $rawData);
-        $gender = explode("上次在 [[32m", $rawData);
+        $gender = explode("上次在 [\x1B[32m", $rawData);
         $gender = substr($gender[0], -$offset, 12);
         if (strpos($gender, "座")) {
             $objData->constellation = substr($gender, 2);
@@ -488,13 +553,13 @@ class LilyClient {
             else if (strpos($gender, "5m") > -1)
             $objData->gender = "female";
         }
-        $rawData = $this->removeColors($rawData);
+        //$rawData = $this->removeColors($rawData);
         $info = explode($spliter, $rawData);
         $objData->sig = null; //签名
         if (count($info) > 1) {
-            $objData->sig = trim(substr($rawData, strlen($info[0] . $spliter) + 2));
+            $objData->sig = $this->format_output(substr($rawData, strlen($info[0] . $spliter) + 5));
         }
-        $info = $info[0];
+        $info = $this->removeColors($info[0]);
 
         $tempArray = explode("共上站", $info);
         $nameid = trim($tempArray[0]);
@@ -552,7 +617,7 @@ class LilyClient {
      * @param string $file 主贴标识
      * @param string $cookie 个人cookie字符串
      * @param string $text 回帖内容
-     * @return boolean 成功返回true失败返回false
+     * @return boolean|string 成功返回true失败返回错误信息
      */
     function postAfter($board, $file, $cookie, $text) {
         $text = mb_convert_encoding($text, "GBK", "UTF-8");
@@ -578,7 +643,7 @@ class LilyClient {
         if (strpos($re, 'Refresh') > -1) {
             return true;
         } else
-        return false;
+        return str_get_html($re);
     }
 
 }
