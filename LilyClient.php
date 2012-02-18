@@ -123,7 +123,8 @@ class LilyClient {
         '${1}[url]${2}://${3}[/url]',
         '[img]http://${1}${2}[/img]',
         '<a href="${1}" target=_blank>${1}</a>',
-        '<img src="${1}" alt="" />',
+        //'<img src="${1}" alt="" />',//原始版本
+        '<img src="img.php?url=${1}" alt="" />',//防盗链版本
         '${1}',
         '${1}',
         '${1}',
@@ -138,7 +139,32 @@ class LilyClient {
 
     /**
      * 
-     * ansi_to_html 和format_ubb的结合体
+     * 将笑脸符号处理成标准HTML
+     * @param string $emo 包含脸符号的字符串
+     * @return string 处理过的标准HTML
+     */
+    function format_emotion($emo) {
+        $emo_txt = array(
+        "[:T]", "[;P]", "[;-D]", "[:!]", "[:L]", "[:?]", "[:Q]",
+				"[:@]", "[:-|]", "[:(]", "[:)]", "[:D]", "[:P]", "[:'(]",
+				"[:O]", "[:s]", "[:|]", "[:$]", "[:X]", "[:U]", "[:K]",
+				"[:C-]", "[;X]", "[:H]", "[;bye]", "[;cool]", "[:-b]", "[:-8]",
+				"[;PT]", "[;-C]", "[:hx]", "[;K]", "[:E]", "[:-(]", "[;hx]",
+				"[:B]", "[:-v]", "[;xx]"
+        );
+        $emo_pics = array(
+        19, 20, 21, 26, 27, 32, 18, 11, 10, 15, 14, 13, 12, 9, 0, 2, 3,
+        6, 7, 16, 25, 29, 34, 36, 39, 4, 40, 41, 42, 43, 44, 47, 49,
+        50, 51, 52, 53, 54
+        );
+        array_walk($emo_pics, create_function('&$value, $key', '
+        $value = "http://bbs.nju.edu.cn/images/face/".$value.".gif";
+        '));
+        return str_replace($emo_txt,$emo_pics, $emo);
+    }
+    /**
+     * 
+     * ansi_to_html, format_ubb和format_emotion的结合体
      * @param string $html 原始输入字符串
      * @return string 输出标准的HTML
      */
@@ -148,9 +174,23 @@ class LilyClient {
         ), array(
         '<br />'
         ), $html);
-        return trim($this->format_ubb($this->ansi_to_html($html)));
+        return trim($this->format_ubb($this->ansi_to_html($this->format_emotion($html))));
     }
     
+    /**
+     * 
+     * 将特定格式的字符串格式化成标准时间格式
+     * @param string $date 特定格式的字符串
+     * @return string 格式化过的时间字符串
+     */
+    function format_date($date) {
+        try{
+            $date = date_create_from_format("D M j H:i:s Y", trim($date));
+            return date_format($date, "Y-m-d H:i:s");
+        } catch(Exception $e) {
+            return $date;
+        }
+    }
 /**
  * 
  * 移除所有的ANSI颜色代码
@@ -342,7 +382,7 @@ class LilyClient {
                 else
                 $objItem->status = "普通";
                 $objItem->author = str_get_html($itemArray[3])->plaintext;
-                $objItem->time = str_get_html($itemArray[4])->plaintext;
+                $objItem->time = $this->format_date(str_get_html($itemArray[4])->plaintext);
                 $html = str_get_html($itemArray[5]);
                 $name = $html->find("a");
                 $name = $name[0];
@@ -394,7 +434,7 @@ class LilyClient {
 
                 $objItem->id = $itemArray[1];
                 $objItem->brd = str_get_html($itemArray[3])->plaintext;
-                $objItem->uptime = $itemArray[4];
+                $objItem->uptime = $this->format_date($itemArray[4]);
                 $objItem->name = str_get_html($itemArray[6])->plaintext;
                 $objItem->bm = str_get_html($itemArray[7])->plaintext;
                 preg_match('/\d+/', $itemArray[8], $match);
@@ -461,7 +501,7 @@ class LilyClient {
             $objItem->count = $count++;
             sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
-            if($title == "")
+            if($title == "" || $objItem->author == "" || $objItem->time == "")
             {//防止不规范的内容出现
                 $objItem->author = null;
                 $objItem->name = null;
@@ -471,6 +511,7 @@ class LilyClient {
                 continue;
             }
             
+            $objItem->time = $this->format_date($objItem->time);
             $objItem->author = trim($objItem->author);
             $objItem->text = str_replace("_newline_", "\n", $objItem->text);//还原换行符
             $objItem->text = $this->format_output($objItem->text); //这里不再进行过滤了，ip地址可以过滤出来
