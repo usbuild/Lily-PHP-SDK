@@ -6,6 +6,12 @@ function getCookie($cookie_jar_name) {
 	return $cookie;
 }
 ?>
+
+<form action="upload.php" enctype="multipart/form-data" method="POST">
+<input type="file" name="file" id="file" />
+<input type="submit" />
+</form>
+
 <?php
 $board = "test";
 $exp = urlencode("Upload By Lily PHP-SDK");
@@ -18,7 +24,7 @@ if(!empty($_FILES["file"]))
 	$cookie = getCookie("cookie.txt");
     $file = $_FILES["file"]["tmp_name"];
     $pathpart = pathinfo($file);
-    $newname = $pathpart['dirname'].'/'.rand(100000, 999999).$_FILES["file"]["name"];
+    $newname = $pathpart['dirname'].'/'.rand(100000, 999999).str_replace(" ", "-",$_FILES["file"]["name"]);
     rename($file, $newname);
     $file = $newname;
     $url = $client->uploadFile($file, $exp, $board, $cookie);

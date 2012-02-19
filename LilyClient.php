@@ -1,13 +1,16 @@
 <?php
 
-//@author Usbuild <njuzhangchao@gmail.com>
+/**
+ * @author Usbuild <njuzhangchao@gmail.com>
+ * @link https://github.com/usbuild/Lily-PHP-SDK
+ */
 require_once("config.php");
 require_once("simple_html_dom.php");
 
 class LilyClient {
 
     /**
-     * 递归将给定的对象用url格式处理,注意本函数不应该直接调用,若要处理请使用objectEncode]
+     * 递归将给定的对象用url格式处理,注意本函数不应该直接调用,若要处理请使用objectEncode
      * 
      * @param object $obj 需要递归url格式化的对象,这是一个引用类型
      * @return object 返回处理过的对象
@@ -184,8 +187,14 @@ class LilyClient {
      * @return string 格式化过的时间字符串
      */
     function format_date($date) {
+        $reDate = $date;
+        echo $date;
         try{
             $date = date_create_from_format("D M j H:i:s Y", trim($date));
+            if($date == false) {
+                $date = date_create_from_format("M j H:i", $reDate);
+                return date_format($date,  "m-d H:i");
+            }
             return date_format($date, "Y-m-d H:i:s");
         } catch(Exception $e) {
             return $date;
@@ -312,6 +321,7 @@ class LilyClient {
         return false;
         $filePath = 'http://bbs.nju.edu.cn/file/' . $board . '/';
         preg_match('/(?<=name=)\S+(?=\')/', $data, $array);
+        if(count($array) == 0) return false;
         $filePath .= $array[0];
         return $filePath;
     }
@@ -457,21 +467,11 @@ class LilyClient {
         //鉴于此处变动较小，故采用直接返回的形式
         $objData = new stdClass;
         $objData->section = "分类讨论区";
-        $objData->items = array(
-        array("sec" => "0", "name" => "本站系统"),
-        array("sec" => "1", "name" => "南京大学"),
-        array("sec" => "2", "name" => "乡情校谊"),
-        array("sec" => "3", "name" => "电脑技术"),
-        array("sec" => "4", "name" => "学术科学"),
-        array("sec" => "5", "name" => "文化艺术"),
-        array("sec" => "6", "name" => "体育娱乐"),
-        array("sec" => "7", "name" => "感性休闲"),
-        array("sec" => "8", "name" => "新闻信息"),
-        array("sec" => "9", "name" => "百合广角"),
-        array("sec" => "10", "name" => "校务信箱"),
-        array("sec" => "11", "name" => "社团群体"),
-        array("sec" => "12", "name" => "冷门讨论区")
-        );
+        
+        $objData->items = array();
+        for($i = 0; $i < 13; $i++ ) {
+            array_push($objData->items, array("sec"=> '"'.$i.'"', "name"=>$this->getForumBySec($i)));
+        }
         return $this->objectEncode($objData);
     }
 
@@ -687,6 +687,47 @@ class LilyClient {
         return str_get_html($re);
     }
 
-}
+    /**
+     * 
+     * 根据sec获得
+     */
+    function  getForumBySec($sec) {
 
-?>
+        $forumList = array("本站系统", "南京大学", "乡情校谊", "电脑技术", "学术科学", "文化艺术", "体育娱乐", "感性休闲", "新闻信息", "百合广角", "校务信箱", "社团群体", "冷门讨论区");
+        return $forumList[$sec];
+    }
+    /**
+     * 
+     * 获取今日各区热门话题
+     * @return string 包含各区热门帖子的json字符串
+     */
+    function getHotArticles() {
+        $url = "http://bbs.nju.edu.cn/bbstopall";
+        $rawData = $this->query($url);
+        $spliter = "<tr><td colspan=2>";
+        $rawArray = explode($spliter, $rawData);
+
+        $objData = new stdClass();
+        $objData->title = "今日各区热门话题";
+        $objData->items = array();
+        $count = 0;
+        array_shift($rawArray);
+        foreach ($rawArray as $item) {
+            preg_match_all('/(?<=file\=)(.*?)">(.+?)\n.{10,}?>(\w+)?</', $item, $matches);
+            $objItem = new stdClass;
+            $objItem->sec = $count;
+            $objItem->name = $this->getForumBySec($count++);
+            $objItem->items = array();
+            for($i = 0; $i < count($matches[1]); $i++) {
+                $objArt = new stdClass;
+                $objArt->title = $matches[2][$i];
+                $objArt->board = $matches[3][$i];
+                $objArt->file = $matches[1][$i];
+                array_push($objItem->items, $objArt);
+                
+            }
+            array_push($objData->items, $objItem);
+        }
+        return $this->objectEncode($objData);
+    }
+}
