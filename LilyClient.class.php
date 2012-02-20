@@ -106,12 +106,14 @@ class LilyClient {
      * @return string 处理过的标准HTML
      */
     function format_ubb($ubb){
-        //TODO 
+        global $Config;
         $pattern = array(
         '/(^|[^\"\'\]])(http|ftp|mms|rstp|news|https)\:\/\/([^\s\033\[\]\"\'\(\)（）。，]+)/i',
         '/\[url\]http\:\/\/(\S+\.)(gif|jpg|png|jpeg|jp)\[\/url\]/i',
         '/\[url\](.+?)\[\/url\]/i',
+        
         '/\[img\](.+?)\[\/img\]/i',
+        '/http\:\/\/(bbs.nju.edu\S+\.|www.lilybbs\S+\.)(gif|jpg|png|jpeg|jp)/',
         '/\[flash\](.+?)\[\/flash\]/i',
         '/\[wmv\](.+?\.wmv)\[\/wmv\]/i',
         '/\[wma\](.+?\.(?:wma|mp3))\[\/wma\]/i',
@@ -126,8 +128,8 @@ class LilyClient {
         '${1}[url]${2}://${3}[/url]',
         '[img]http://${1}${2}[/img]',
         '<a href="${1}" target=_blank>${1}</a>',
-        //'<img src="${1}" alt="" />',//原始版本
-        '<img src="img.php?url=${1}" alt="" />',//防盗链版本
+        '<img src="${1}" alt="" />',//原始版本
+        $Config->install_dir.'/img.php?url=${1}${2}',//防盗链版本
         '${1}',
         '${1}',
         '${1}',
@@ -161,7 +163,7 @@ class LilyClient {
         50, 51, 52, 53, 54
         );
         array_walk($emo_pics, create_function('&$value, $key', '
-        $value = "http://bbs.nju.edu.cn/images/face/".$value.".gif";
+        $value = " http://bbs.nju.edu.cn/images/face/".$value.".gif ";
         '));
         return str_replace($emo_txt,$emo_pics, $emo);
     }
@@ -220,9 +222,8 @@ class LilyClient {
      */
 
     function getCookie($username, $password) {
-        global $Config;
         $cookie_array = array();
-        $login_url = $Config->login_url;
+        $login_url = "http://bbs.nju.edu.cn/bbslogin";
         $param = array(
             'type' => '2',
             'id' => $username,
@@ -239,6 +240,7 @@ class LilyClient {
         curl_close($ch);
         try {
             $tmpArray = explode("setCookie('", $data);
+            if(count($tmpArray) < 2) return false;
             $cookie_string = $tmpArray[1];
             $tmpArray = explode("')", $cookie_string);
             $cookie_string = $tmpArray[0];
@@ -254,6 +256,36 @@ class LilyClient {
         return $cookie;
     }
 
+    
+    //以下三个函数是为了保证传输的安全性,目前还没有实现
+/**
+ * 
+ * 根据用户名密码获得唯一$token
+ * @param string $username 用户标识
+ * @param string $password 密码
+ * @return string 唯一标识token
+ */
+    function getToken($username, $password) {
+        $cookie = getCookie($username, $password);
+        //请保存上面的$cookie字符串,实现可根据情况.返回唯一对应字符串
+    }
+    /**
+     * 
+     * 根据唯一token获得cookie
+     * @param string $token 标识
+     * @param string $cookie字符串
+     */
+    function getCookieString($token) {
+        //根据上面的唯一字符串($token)获得$cookie字符串
+    }
+    /**
+     * 
+     * 使cookie无效化
+     * @param string $token 标识
+     */
+    function invalideCookie($token) {
+        
+    }
     /**
      * 
      * 简单包装curl函数,用于获取网页内容
@@ -369,11 +401,11 @@ class LilyClient {
  */
 
     function getPosts($board, $start = null) {
-        global $Config;
+        $url = "http://bbs.nju.edu.cn/bbstdoc";
         if ($start == null)
-        $url = $Config->board_url . "?board=" . $board;
+        $url = $url . "?board=" . $board;
         else
-        $url = $Config->board_url . "?board=" . $board . "&start=" . $start;
+        $url = $url . "?board=" . $board . "&start=" . $start;
         $rawData = $this->query($url);
         //提取出Table中的内容
         $rawData = explode("<table", $rawData);
@@ -561,7 +593,7 @@ class LilyClient {
         $result = $this->query($url, $cookie, $fields);
         if (strpos($result, 'Refresh') > 0) //如果发表成功，服务器会返回一个Refresh命令
         return true;
-        return str_get_html($result)->plaintext;
+        return false;
     }
 
     /**
