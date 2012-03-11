@@ -1,5 +1,5 @@
 <?php
-header('Content-Type: image/png');
+//header('Content-Type: image/jpeg');
 if (isset($_GET['url']) && !empty($_GET['url'])){
     $ch = curl_init();
     curl_setopt ($ch, CURLOPT_URL, $_GET['url']);
@@ -18,21 +18,19 @@ if (isset($_GET['url']) && !empty($_GET['url'])){
    $image = imagecreatefromstring($image);
    $width = imagesx($image);
    $height = imagesy($image);
-    $percent = 1;
-   $maxWidth = 400;
-    if($width > $maxWidth) {
+header('Content-Type: image/png');
+$percent = 1;
+   $maxWidth = 200;
+   if($width > $maxWidth)
      $percent = $maxWidth / $width;
    
 $new_width = $width * $percent;
 $new_height = $height * $percent;
-   
-   $image_p = imagecreatetruecolor($new_width, $new_height);
+  $image_p = imagecreate($new_width, $new_height);
   imagecopyresampled($image_p, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-  imagepng($image_p);
-   imagedestroy($image_p);
-    } else {
-    imagepng($image);
-    }
+  
+   imagegif($image);
+  imagedestroy($image_p);
   imagedestroy($image);
 }
 ?>

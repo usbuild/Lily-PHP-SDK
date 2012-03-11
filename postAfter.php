@@ -6,7 +6,9 @@ if(isset($_REQUEST['cookie']) && isset($_REQUEST['board'])) {
     $file = $_REQUEST['file'];
     $text = isset($_REQUEST['text']) ? $_REQUEST['text'] : "";
     $client = new LilyClient();
-    $client->postAfter($board, $file, $cookie, $text);
+    $re = $client->postAfter($board, $file, $cookie, $text);
+    if(!$re)
+    	echo "fail";
 } else {
     echo "invalid params";
 }

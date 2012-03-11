@@ -9,8 +9,9 @@ if(isset($_REQUEST['title']) && isset($_REQUEST['cookie']) && isset($_REQUEST['b
     $text = str_replace("<br />", "\n", $text);
     $text = preg_replace('/<img src=\"(.*?)\".*?>/', '${1}', $text);
     $re = $client->post($board, $title, $text, $cookie);
-    if($re)
-        echo "success";
-    else echo "fail";
+    if(!$re)
+        echo "fail";
+} else {
+    echo "invalid params";
 }
 ?>

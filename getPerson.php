@@ -1,9 +1,9 @@
 <?php
 header('Content-Type: application/json');
-if(isset($_GET['username'])) {
+if(isset($_REQUEST['username'])) {
     require_once 'LilyClient.class.php';
     $client=new LilyClient();
-    echo $client->getPersonInfo($_GET['username']);
+    echo $client->getPersonInfo($_REQUEST['username']);
 } else {
     echo "invalid params";
 }

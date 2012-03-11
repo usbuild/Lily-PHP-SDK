@@ -1,8 +1,8 @@
 <?php
-if(isset($_GET['username']) && isset($_GET['password'])) {
+if(isset($_REQUEST['username']) && isset($_REQUEST['password'])) {
     require_once 'LilyClient.class.php';
     $client=new LilyClient();
-    $re = $client->getCookie($_GET['username'], $_GET['password']);
+    $re = $client->getCookie($_REQUEST['username'], $_REQUEST['password']);
     if($re == false)
         echo "";
     else echo $re;

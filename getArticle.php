@@ -1,10 +1,10 @@
 <?php
 header('Content-Type: application/json');
-if(isset($_GET['board']) && isset($_GET['file'])) {
+if(isset($_REQUEST['board']) && isset($_REQUEST['file'])) {
     require_once 'LilyClient.class.php';
     $client=new LilyClient();
-    $start = isset($_GET['start']) ? $_GET['start'] : null;
-    echo $client->getArticle($_GET['board'], $_GET['file'], $start);
+    $start = isset($_REQUEST['start']) ? $_REQUEST['start'] : -1;
+    echo $client->getArticle($_REQUEST['board'], $_REQUEST['file'], $start);
 } else {
     echo "invalid params";
 }
