@@ -716,14 +716,20 @@ class LilyClient {
         $rawData = str_replace($nextline, "\n", $rawData);
         $gender = explode("上次在 [\x1B[32m", $rawData);
         $gender = substr($gender[0], -$offset, 12);
+    
+        $offset = -1;//防止没有星座信息
         if (strpos($gender, "座")) {
             $objData->constellation = substr($gender, 2, -1);
             if (strpos($gender, "6m") > -1)
             $objData->gender = "male";
             else if (strpos($gender, "5m") > -1)
             $objData->gender = "female";
+            $offset = 0;
+        } else if(strpos($gender, "不"))//貌似有不详的信息
+        {
+            $offset = 0;
         }
-        //$rawData = $this->removeColors($rawData);
+        else {}
         $info = explode($spliter, $rawData);
         $objData->sig = null; //签名
         if (count($info) > 1) {
@@ -759,10 +765,12 @@ class LilyClient {
 
 
         preg_match_all('/\[.*?\]/', $info, $match);
+        /*
         if ($objData->constellation == null)
-        $offset = -1;
+            $offset = -1;
         else
-        $offset = 0;
+            $offset = 0;
+         */
         $objData->lastDate = $this->format_date(substr($match[0][1 + $offset], 1, -1));
         $objData->lastIp = substr($match[0][2 + $offset], 1, -1);
 
