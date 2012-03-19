@@ -592,6 +592,20 @@ class LilyClient {
         $objData = new stdClass;
         $objData->board = $board; //所在版区
         $objData->title = null; //文章标题
+        $objData->prev = -1;
+        $objData->next = -1;
+        $count = preg_match('/&start=(\d+)>本主题上30篇/', $rawData, $matches);
+        if($count > 0) {
+            $objData->prev = $matches[1];
+        }
+        $count = preg_match('/&start=(\d+)>本主题下30篇/', $rawData, $matches);
+        if($count > 0) {
+            $objData->next = $matches[1];
+        }
+
+
+
+
         $objData->items = array();
       $count = $start  < 0 ?0 : $start;
         if(count($textareas) == 0) return "{}";
@@ -602,9 +616,7 @@ class LilyClient {
             $objItem = new stdClass;
             $objItem->count = $count++;
           
-          //echo $item;
-          //sscanf($item, "%*[^ ]%[^(](%[^)]%*[^:]:%*[^:]:%[^:]%*[^(](%[^)])%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
-          sscanf($item, "%*[^:]:%[^(](%[^)]%*[^\n]\n%[^\n]\n%*[^(](%[^)]%*[^\n]\n%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
+            sscanf($item, "%*[^:]:%[^(](%[^)?]%*[^\n]\n%[^\n]\n%*[^(](%[^)]%*[^\n]\n%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
             if($title == "" || $objItem->author == "" || $objItem->time == "")
             {
@@ -612,15 +624,14 @@ class LilyClient {
                 $objItem->author = null;
                 $objItem->name = null;
                 $objItem->time = null;
-                $objItem->text = $item;
-              // $objItem->text = $this->format_output(str_replace("_newline_", "\n", $item));
+                //$objItem->text = $this->format_output($item);
+                $objItem->text = $this->format_output(substr($item, 0, strrpos($item, "--") - 1));
                 array_push($objData->items, $objItem);
                 continue;
             }
 
             $objItem->time = $this->format_date($objItem->time);
             $objItem->author = trim($objItem->author);
-          //$objItem->text = str_replace("_newline_", "\n", $objItem->text);//还原换行符
             $objItem->text = $this->format_output(substr($objItem->text, 0, strrpos($objItem->text, "--") - 1)); //这里不再进行过滤了，ip地址可以过滤出来
             $objItem->name = $objItem->name;
             if ($objData->title == null) {
