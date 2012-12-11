@@ -231,8 +231,7 @@ class LilyClient {
             'pw' => $password,
         );
         $request = http_build_query($param);
-        $ch = curl_init($login_url);
-        curl_setopt($ch, CURLOPT_POST, 1);
+        $ch = curl_init($login_url.'?'.$request);
         curl_setopt($ch, CURLOPT_POSTFIELDS, $request);
         curl_setopt($ch, CURLOPT_HEADER, false);
         curl_setopt($ch, CURLOPT_NOBODY, false);
