@@ -139,7 +139,7 @@ class LilyClient {
            '[img]http://${1}${2}[/img]',
           '<a href="${1}" target=_blank>${1}</a>',
         '<img src="${1}" alt="" />',//原始版本
-        $Config->install_dir.'/img.php?url=${1}${2}',//防盗链版本
+          $Config->install_dir.'/img.php?url=http://${1}${2}',//防盗链版本
         '${1}',
         '${1}',
         '${1}',
@@ -200,17 +200,7 @@ class LilyClient {
      * @return string 格式化过的时间字符串
      */
     function format_date($date) {
-        $reDate = $date;
-        try{
-            $date = date_create_from_format("D M j H:i:s Y", trim($date));
-            if($date == false) {
-                $date = date_create_from_format("M j H:i", $reDate);
-                return date_format($date,  "m-d H:i");
-            }
-            return date_format($date, "Y-m-d H:i:s");
-        } catch(Exception $e) {
-            return $date;
-        }
+      return date("m-d H:i", strtotime($date));
     }
     /**
      *
@@ -422,6 +412,20 @@ class LilyClient {
         $data = str_replace(array('"bm"', '"n"', '"brd"'), array('"manager"', '"name"', '"board"'), $data);
         echo $data;
     }
+
+
+    /**
+     *
+     * 获取热门板块
+     * @return string 返回热门的json格式字符串
+     */
+    function getRecBoard() {
+        $data = $this->query("http://bbs.nju.edu.cn/cache/t_recbrd.js");
+        $data = '{"title":"推荐版块", "recBoard":' . $this->getJson($data) . '}';
+        $data = str_replace(array('"bm"', '"brd"'), array('"manager"', '"board"'), $data);
+        echo $data;
+    }
+
     /**
      *
      * 获取某一板块的帖子
@@ -588,7 +592,10 @@ class LilyClient {
         $rawData = $this->query($url);
         $rawData = str_replace("\n", "_newline_", $rawData); //simple_html_dom 的 plaintext 会将换行符过滤掉，这里先占个位
         $html = str_get_html($rawData);
+      
         $textareas = $html->find("textarea");
+      
+      
         $objData = new stdClass;
         $objData->board = $board; //所在版区
         $objData->title = null; //文章标题
@@ -607,10 +614,12 @@ class LilyClient {
 
 
         $objData->items = array();
-      $count = $start  < 0 ?0 : $start;
+        $count = $start  < 0 ?0 : $start;
         if(count($textareas) == 0) return "{}";
+      
         foreach ($textareas as $item) {
             $item = $item->plaintext;
+          
             $item = str_replace("_newline_", "\n", $item);
 
             $objItem = new stdClass;
@@ -618,6 +627,7 @@ class LilyClient {
           
             sscanf($item, "%*[^:]:%[^(](%[^)?]%*[^\n]\n%[^\n]\n%*[^(](%[^)]%*[^\n]\n%[^\xFF]", $objItem->author, $objItem->name, $title, $objItem->time, $objItem->text);
 
+          
             if($title == "" || $objItem->author == "" || $objItem->time == "")
             {
                 //防止不规范的内容出现
@@ -625,18 +635,21 @@ class LilyClient {
                 $objItem->name = null;
                 $objItem->time = null;
                 //$objItem->text = $this->format_output($item);
-                $objItem->text = $this->format_output(substr($item, 0, strrpos($item, "--") - 1));
+                $objItem->text = $this->format_output(substr($item, 0, strrpos($item, "--")));
                 array_push($objData->items, $objItem);
                 continue;
             }
 
             $objItem->time = $this->format_date($objItem->time);
+          
             $objItem->author = trim($objItem->author);
-            $objItem->text = $this->format_output(substr($objItem->text, 0, strrpos($objItem->text, "--") - 1)); //这里不再进行过滤了，ip地址可以过滤出来
+          
+            $objItem->text = $this->format_output(substr($objItem->text, 0, strrpos($objItem->text, "--"))); //这里不再进行过滤了，ip地址可以过滤出来
             $objItem->name = $objItem->name;
             if ($objData->title == null) {
                 $objData->title = substr($title, 10);//Magic Number
             }
+          
             array_push($objData->items, $objItem);
         }
         return $this->objectEncode($objData);
@@ -795,7 +808,7 @@ class LilyClient {
         }
 
         $this->encode($objData);
-        echo urldecode(json_encode($objData));
+        echo str_replace("\n", '', urldecode(json_encode($objData)));
         return null;
     }/*}}}*/
 
